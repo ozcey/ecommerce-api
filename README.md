@@ -1,2 +1,2 @@
 # ecommerce-api
-Python E Commerce Api Project
+Python E-Commerce Api Project
