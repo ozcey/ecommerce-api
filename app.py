@@ -1,20 +1,22 @@
 import os
 from flask import Flask, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, ForeignKey
 from flask_marshmallow import Marshmallow
 from flask_jwt_extended import JWTManager, jwt_required, create_access_token
+from sqlalchemy.orm import relationship
 
 app = Flask(__name__)
 
 basedir = os.path.abspath(os.path.dirname(__file__))
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'ecommerce.db')
-app.config['JWT_SECRET_KEY'] = 'super-secret'
+app.config['JWT_SECRET_KEY'] = '4ea8d2335b430796cf3f500368c5b0f5b1dc90f5'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 ma = Marshmallow(app)
 jwt = JWTManager(app)
+
 
 @app.cli.command('db_create')
 def db_create():
@@ -26,6 +28,16 @@ def db_create():
 def db_drop():
     db.drop_all()
     print("Database dropped!")
+
+
+@app.route('/', methods=['GET'])
+def welcome():
+    return 'Welcome to E-Commerce App'
+
+
+@app.route('/home', methods=['GET'])
+def home():
+    return 'Welcome to Home Page'
 
 
 @app.route('/find_users', methods=['GET'])
@@ -49,7 +61,7 @@ def retrieve_user(id: int):
 def login():
     if request.is_json:
         email = request.json['email']
-        password = request.json['password']
+        password = request.json['password'] 
     else:
         email = request.form['email']
         password = request.form['password']
@@ -59,6 +71,7 @@ def login():
         return jsonify(message="You logged in successfully!", access_token=access_token)
     else:
         return jsonify(message="Bad email or password!"), 401
+
 
 @app.route('/create_user', methods=['POST'])
 @jwt_required
@@ -118,12 +131,47 @@ class User(db.Model):
     role = Column(String)
 
 
+class Customer(db.Model):
+    __tablename__ = 'customers'
+    id = Column(Integer, primary_key=True)
+    first_name = Column(String)
+    last_name = Column(String)
+    email = Column(String, unique=True)
+    password = Column(String)
+    address = relationship("Address", backref='customers', lazy=True)
+
+
+class Address(db.Model):
+    __tablename__ = 'address'
+    id = Column(Integer, primary_key=True)
+    street = Column(String)
+    city = Column(String)
+    state = Column(String)
+    zipcode = Column(String)
+    customer_id = Column(Integer, ForeignKey('customer_id'), nullable=False)
+
+
 class UserSchema(ma.Schema):
     class Meta:
         fields = ('id', 'first_name', 'last_name', 'email', 'password', 'role')
 
+
+class CustomerSchema(ma.Schema):
+    class Meta:
+        fields = ('id', 'first_name', 'last_name', 'email', 'password', 'address')
+
+
+class AddressSchema(ma.Schema):
+    class Meta:
+        fields = ('id', 'street', 'city', 'state', 'zipcode', 'customer_id')
+
+
 user_schema = UserSchema()
 users_schema = UserSchema(many=True)
+
+customer_schema = CustomerSchema()
+customers_schema = CustomerSchema(many=True)
+
 
 if __name__ == '__main__':
     app.run()
